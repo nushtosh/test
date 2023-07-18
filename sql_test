@@ -1,0 +1,24 @@
+--1
+select substr(issue_key, 1,1) as is_gr,round(avg(mis)/60,2) as av_hours from
+(
+select issue_key
+    ,sum(minutes_in_status) as mis --for cases when one issue is in open status several times
+from history
+where lower(status)='open' --looking only at issues with open status
+    and ended_at is not null     --and open status must be ended so we dont include the issues that are still open
+group by issue_key)
+group by substr(issue_key, 1,1);
+
+--2
+select issue_key,status,started_at from
+(
+select issue_key,status
+    ,datetime(started_at/1000, 'unixepoch') started_at
+    , datetime(ended_at/1000, 'unixepoch') ended_at
+    ,row_number() over (partition by issue_key order by started_at desc) rn from history --ordering statuses by datetime
+where  datetime(started_at/1000, 'unixepoch')<=datetime('now') -- looking at the state of issues at given time: issue cant have started at>given time
+)
+where rn=1 --looking only at last status of given time
+and lower(status)not in ('closed','resolved');
+
+
